@@ -20,6 +20,41 @@ class Bot extends MessengerBot {
       res.end(JSON.stringify({ status: 'ok' }));
     });
   }
+
+  sendPlaceCard(recipient, url, name, address, image) {
+    return this.sendMessage(recipient, {
+      attachment: {
+        type: 'template',
+        payload: {
+          template_type: 'generic',
+          elements: [
+            {
+              image_url: image,
+              title: name,
+              subtitle: address,
+              default_action: {
+                url,
+                type: 'web_url',
+              },
+            },
+          ],
+        },
+      },
+    })
+    .catch(err => Promise.reject(err));
+  }
+
+  sendQuestion(recipient, question, options) {
+    return this.sendMessage(recipient, {
+      text: question,
+      quick_replies: options.map(({ text, payload }) => ({
+        payload,
+        content_type: 'text',
+        title: text,
+      })),
+    })
+    .catch(err => Promise.reject(err));
+  }
 }
 
 module.exports = Bot;

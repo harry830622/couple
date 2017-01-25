@@ -23,60 +23,31 @@ bot.on('message', (payload, reply) => {
   const { text } = payload.message;
   const recipient = payload.sender.id;
 
-  bot.sendSenderAction(recipient, 'mark_seen');
-
   if (text.includes('instagram.com/p/')) {
     const url = text;
 
     const result = {};
-    bot.sendSenderAction(recipient, 'typing_on')
+    bot.sendSenderAction(recipient, 'mark_seen')
+      .then(() => bot.sendSenderAction(recipient, 'typing_on'))
       .then(() => ig.loadLocation(url))
-      .then((location) => {
-        Object.assign(result, { location });
-      })
+      .then(location => Object.assign(result, { location }))
       .then(() => map.address(result.location))
-      .then((body) => {
-        const address = body.results[0].formatted_address;
-        Object.assign(result, { address });
-      })
+      .then(body =>
+        Object.assign(result, { address: body.results[0].formatted_address }))
       .then(() => ig.loadImage(url))
-      .then((image) => {
-        Object.assign(result, { image });
-      })
-      .then(() => reply({
-        attachment: {
-          type: 'template',
-          payload: {
-            template_type: 'generic',
-            elements: [
-              {
-                image_url: result.image,
-                title: result.location,
-                subtitle: result.address,
-                default_action: {
-                  url,
-                  type: 'web_url',
-                },
-              },
-            ],
-          },
+      .then(image => Object.assign(result, { image }))
+      .then(() => bot.sendPlaceCard(
+        recipient, url, result.location, result.address, result.image))
+      .then(() => bot.sendQuestion(recipient, '想去？', [
+        {
+          text: '超想去！',
+          payload: JSON.stringify({ priority: 5 }),
         },
-      }))
-      .then(() => reply({
-        text: '想吃？',
-        quick_replies: [
-          {
-            content_type: 'text',
-            title: '超想吃！',
-            payload: JSON.stringify({ priority: 5 }),
-          },
-          {
-            content_type: 'text',
-            title: '先記著再說哈哈',
-            payload: JSON.stringify({ priority: 3 }),
-          },
-        ],
-      }))
+        {
+          text: '先記著再說哈哈',
+          payload: JSON.stringify({ priority: 3 }),
+        },
+      ]))
       .then(() => bot.sendSenderAction(recipient, 'typing_off'))
       .catch((err) => {
         reply({ text: err.message });
@@ -84,4 +55,4 @@ bot.on('message', (payload, reply) => {
   }
 });
 
-http.createServer(app).listen(3000);
+http.createServer(app).listen(8080);
