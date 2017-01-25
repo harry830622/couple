@@ -14,7 +14,8 @@ class Map {
         language: 'zh-TW',
       },
       json: true,
-    });
+    })
+    .catch(err => Promise.reject(err));
   }
 
 }
