@@ -17,8 +17,10 @@
   },
   "homepage": "https://github.com/harry830622/couple#readme",
   "dependencies": {
+    "@google-cloud/storage": "^0.6.1",
     "body-parser": "^1.16.0",
     "express": "^4.14.0",
+    "firebase": "^3.6.7",
     "messenger-bot": "github:remixz/messenger-bot",
     "nightmare": "^2.9.1",
     "request": "^2.79.0",

@@ -1,7 +1,7 @@
 const rp = require('request-promise-native');
 
 class Map {
-  constructor({ key }) {
+  constructor(key) {
     this.key = key;
   }
 

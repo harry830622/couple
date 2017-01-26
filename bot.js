@@ -21,7 +21,7 @@ class Bot extends MessengerBot {
     });
   }
 
-  sendPlaceCard(recipient, url, name, address, image) {
+  sendPlaceCard(recipient, url, image, name, address) {
     return this.sendMessage(recipient, {
       attachment: {
         type: 'template',
