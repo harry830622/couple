@@ -70,8 +70,17 @@ class Db {
         imageUrl: newImageUrl,
         priority: 3,
       }))
+      .then(() => id)
       .catch(err => Promise.reject(err));
   }
+
+  updatePost(id, data) {
+    const postRef = this.db.ref('posts').child(id);
+
+    return postRef.update(data)
+      .catch(err => Promise.reject(err));
+  }
+
 }
 
 module.exports = Db;

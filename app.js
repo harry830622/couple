@@ -28,61 +28,104 @@ bot.on('error', (err) => {
   throw err;
 });
 
-bot.on('message', (payload, reply) => {
-  const { text } = payload.message;
-  const recipient = payload.sender.id;
+bot.on('message', (res) => {
+  const { message } = res;
+  const recipient = res.sender.id;
 
-  if (text.includes('instagram.com/p/')) {
-    const url = text;
+  if (message.quick_reply) {
+    const payload = JSON.parse(message.quick_reply.payload);
 
-    const post = { from: url };
-    const place = {};
-    bot.sendSenderAction(recipient, 'mark_seen')
-      .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-      .then(() => bot.getProfile(recipient))
-      .then((profile) => {
-        const by = profile.gender === 'male' ? 'Harry' : 'Wendy';
+    switch (payload.action) {
+      case 'UPDATE_POST_PRIORITY': {
+        bot.sendSenderAction(recipient, 'mark_seen')
+        .then(() => bot.sendSenderAction(recipient, 'typing_on'))
+        .then(() => db.updatePost(payload.post.id, {
+          priority: payload.post.priority,
+        }))
+        .then(() => bot.sendMessage(recipient, {
+          text: '祈禱 Harry 會盡快帶你去吧可科',
+        }))
+        .then(() => bot.sendSenderAction(recipient, 'typing_off'))
+        .catch((err) => {
+          bot.sendMessage(recipient, { text: err.message });
+        });
 
-        Object.assign(post, { by });
+        break;
+      }
+      default:
+        break;
+    }
+  } else if (message.text) {
+    const { text } = message;
 
-        return ig.loadPlace(post.from);
-      })
-      .then((name) => {
-        Object.assign(place, { name });
+    if (text.includes('instagram.com/p/')) {
+      const url = text;
 
-        return map.address(place.name);
-      })
-      .then((body) => {
-        Object.assign(place, { address: body.results[0].formatted_address });
+      const post = { from: url };
+      const place = {};
+      bot.sendSenderAction(recipient, 'mark_seen')
+        .then(() => bot.sendSenderAction(recipient, 'typing_on'))
+        .then(() => bot.getProfile(recipient))
+        .then((profile) => {
+          const by = profile.gender === 'male' ? 'Harry' : 'Wendy';
 
-        return ig.loadImageUrl(post.from);
-      })
-      .then((imageUrl) => {
-        Object.assign(post, { imageUrl });
+          Object.assign(post, { by });
 
-        return bot.sendPlaceCard(
-          recipient, post.from, post.imageUrl, place.name, place.address);
-      })
-      .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-      .then(() => {
-        Object.assign(post, { place });
+          return ig.loadPlaceName(post.from);
+        })
+        .then((placeName) => {
+          Object.assign(place, { name: placeName });
 
-        return db.addPost(post);
-      })
-      .then(() => bot.sendQuestion(recipient, '想去？', [
-        {
-          text: '超想去！',
-          payload: JSON.stringify({ priority: 5 }),
-        },
-        {
-          text: '先記著再說哈哈',
-          payload: JSON.stringify({ priority: 3 }),
-        },
-      ]))
-      .then(() => bot.sendSenderAction(recipient, 'typing_off'))
-      .catch((err) => {
-        reply({ text: err.message });
-      });
+          return map.loadAddress(place.name);
+        })
+        .then((placeAddress) => {
+          Object.assign(place, { address: placeAddress });
+
+          return ig.loadImageUrl(post.from);
+        })
+        .then((imageUrl) => {
+          Object.assign(post, { imageUrl });
+
+          return bot.sendPlaceCard(
+            recipient, post.from, post.imageUrl, place.name, place.address);
+        })
+        .then(() => bot.sendSenderAction(recipient, 'typing_on'))
+        .then(() => {
+          Object.assign(post, { place });
+
+          return db.addPost(post);
+        })
+        .then((postId) => {
+          Object.assign(post, { id: postId });
+
+          return bot.sendQuestion(recipient, '想去？', [
+            {
+              text: '超想去！',
+              payload: JSON.stringify({
+                action: 'UPDATE_POST_PRIORITY',
+                post: {
+                  id: post.id,
+                  priority: 5,
+                },
+              }),
+            },
+            {
+              text: '先記著再說哈哈',
+              payload: JSON.stringify({
+                action: 'UPDATE_POST_PRIORITY',
+                post: {
+                  id: post.id,
+                  priority: 3,
+                },
+              }),
+            },
+          ]);
+        })
+        .then(() => bot.sendSenderAction(recipient, 'typing_off'))
+        .catch((err) => {
+          bot.sendMessage(recipient, { text: err.message });
+        });
+    }
   }
 });
 

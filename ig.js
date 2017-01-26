@@ -3,7 +3,7 @@ const Nightmare = require('nightmare');
 const queryLocation = 'main article > header a[href*="locations"]';
 const queryImage = 'main article > div img';
 
-function loadPlace(url) {
+function loadPlaceName(url) {
   return new Nightmare()
     .goto(url)
     .wait('main article')
@@ -52,6 +52,6 @@ function loadImageUrl(url) {
 }
 
 module.exports = {
-  loadPlace,
+  loadPlaceName,
   loadImageUrl,
 };
