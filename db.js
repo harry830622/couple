@@ -69,6 +69,7 @@ class Db {
         place,
         imageUrl: newImageUrl,
         priority: 3,
+        timestamp: Date.now(),
       }))
       .then(() => id)
       .catch(err => Promise.reject(err));
