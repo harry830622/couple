@@ -116,10 +116,16 @@ bot.on('message', (res) => {
         .then((placeName) => {
           place = Object.assign({}, place, { name: placeName });
 
-          return map.loadAddress(place.name);
+          return map.loadPlace(place.name);
         })
-        .then((placeAddress) => {
-          place = Object.assign({}, place, { address: placeAddress });
+        .then((result) => {
+          place = Object.assign({}, place, {
+            address: result.formatted_address,
+            location: {
+              latitude: result.geometry.location.lat,
+              longitude: result.geometry.location.lng,
+            },
+          });
           post = Object.assign({}, post, { place });
 
           return ig.loadImageUrl(post.from);

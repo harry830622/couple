@@ -32,6 +32,12 @@ class Map {
       .catch(err => Promise.reject(err));
   }
 
+  loadLocation(query) {
+    return this.loadPlace(query)
+      .then(place => place.location)
+      .catch(err => Promise.reject(err));
+  }
+
 }
 
 module.exports = Map;
