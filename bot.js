@@ -36,6 +36,13 @@ class Bot extends MessengerBot {
                 url,
                 type: 'web_url',
               },
+              buttons: [
+                {
+                  type: 'web_url',
+                  url: `https://www.google.com/maps/?q=${name}`,
+                  title: 'Go!',
+                },
+              ],
             },
           ],
         },

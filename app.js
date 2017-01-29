@@ -1,10 +1,11 @@
 const express = require('express');
-const http = require('http');
 
 const ig = require('./ig.js');
 const Map = require('./map.js');
 const Db = require('./db.js');
 const Bot = require('./bot.js');
+
+const port = process.argv[2];
 
 const app = express();
 
@@ -22,7 +23,7 @@ const bot = new Bot(app, {
   appSecret: process.env.app_secret,
   pageAccessToken: process.env.page_access_token,
   verifyToken: process.env.verify_token,
-}, '/messenger');
+}, '/bot');
 
 bot.on('error', (err) => {
   throw err;
@@ -55,7 +56,9 @@ bot.on('message', (res) => {
       default:
         break;
     }
-  } else if (message.text) {
+  }
+
+  if (message.text) {
     const { text } = message;
 
     if (text.includes('instagram.com/p/')) {
@@ -129,4 +132,4 @@ bot.on('message', (res) => {
   }
 });
 
-http.createServer(app).listen(8080);
+app.listen(port);
