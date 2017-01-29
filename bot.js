@@ -21,34 +21,39 @@ class Bot extends MessengerBot {
     });
   }
 
-  sendPlaceCard(recipient, url, image, name, address) {
+  sendPostCards(recipient, posts) {
+    const elements = posts.map(({ from, imageUrl, place }) => ({
+      image_url: imageUrl,
+      title: place.name,
+      subtitle: place.address,
+      default_action: {
+        url: from,
+        type: 'web_url',
+      },
+      buttons: [
+        {
+          type: 'web_url',
+          url: `https://www.google.com/maps/?q=${place.name}`,
+          title: 'Go!',
+        },
+      ],
+    }));
+
     return this.sendMessage(recipient, {
       attachment: {
         type: 'template',
         payload: {
+          elements,
           template_type: 'generic',
-          elements: [
-            {
-              image_url: image,
-              title: name,
-              subtitle: address,
-              default_action: {
-                url,
-                type: 'web_url',
-              },
-              buttons: [
-                {
-                  type: 'web_url',
-                  url: `https://www.google.com/maps/?q=${name}`,
-                  title: 'Go!',
-                },
-              ],
-            },
-          ],
         },
       },
     })
     .catch(err => Promise.reject(err));
+  }
+
+  sendPostCard(recipient, post) {
+    return this.sendPostCards(recipient, [post])
+      .catch(err => Promise.reject(err));
   }
 
   sendQuestion(recipient, question, options) {

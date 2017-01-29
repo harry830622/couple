@@ -48,6 +48,22 @@ class Db {
       .catch(err => Promise.reject(err));
   }
 
+  posts(orderBy, numPosts) {
+    const postsRef = this.db.ref('posts');
+
+    return postsRef.orderByChild(orderBy).limitToLast(numPosts).once('value')
+      .then((snapshot) => {
+        let posts = [];
+        snapshot.forEach((childSnapshot) => {
+          posts = posts.concat([childSnapshot.val()]);
+        });
+        posts = posts.reverse();
+
+        return posts;
+      })
+      .catch(err => Promise.reject(err));
+  }
+
   addPost({ by, from, imageUrl, place }) {
     const postRef = this.db.ref('posts').push();
     const id = postRef.key;
@@ -63,7 +79,6 @@ class Db {
         });
       })
       .then(newImageUrl => postRef.set({
-        id,
         by,
         from,
         place,

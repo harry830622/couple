@@ -53,8 +53,9 @@ bot.on('message', (res) => {
 
         break;
       }
-      default:
+      default: {
         break;
+      }
     }
   }
 
@@ -64,66 +65,58 @@ bot.on('message', (res) => {
     if (text.includes('instagram.com/p/')) {
       const url = text;
 
-      const post = { from: url };
-      const place = {};
+      let post = { from: url };
+      let place = {};
       bot.sendSenderAction(recipient, 'mark_seen')
         .then(() => bot.sendSenderAction(recipient, 'typing_on'))
         .then(() => bot.getProfile(recipient))
         .then((profile) => {
           const by = profile.gender === 'male' ? 'Harry' : 'Wendy';
 
-          Object.assign(post, { by });
+          post = Object.assign({}, post, { by });
 
           return ig.loadPlaceName(post.from);
         })
         .then((placeName) => {
-          Object.assign(place, { name: placeName });
+          place = Object.assign({}, place, { name: placeName });
 
           return map.loadAddress(place.name);
         })
         .then((placeAddress) => {
-          Object.assign(place, { address: placeAddress });
+          place = Object.assign({}, place, { address: placeAddress });
+          post = Object.assign({}, post, { place });
 
           return ig.loadImageUrl(post.from);
         })
         .then((imageUrl) => {
-          Object.assign(post, { imageUrl });
+          post = Object.assign({}, post, { imageUrl });
 
-          return bot.sendPlaceCard(
-            recipient, post.from, post.imageUrl, place.name, place.address);
+          return bot.sendPostCard(recipient, post);
         })
         .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-        .then(() => {
-          Object.assign(post, { place });
-
-          return db.addPost(post);
-        })
-        .then((postId) => {
-          Object.assign(post, { id: postId });
-
-          return bot.sendQuestion(recipient, '想去？', [
-            {
-              text: '超想去！',
-              payload: JSON.stringify({
-                action: 'UPDATE_POST_PRIORITY',
-                post: {
-                  id: post.id,
-                  priority: 5,
-                },
-              }),
-            },
-            {
-              text: '先記著再說哈哈',
-              payload: JSON.stringify({
-                action: 'UPDATE_POST_PRIORITY',
-                post: {
-                  id: post.id,
-                  priority: 3,
-                },
-              }),
-            },
-          ]);
-        })
+        .then(() => db.addPost(post))
+        .then(postId => bot.sendQuestion(recipient, '想去？', [
+          {
+            text: '超想去！',
+            payload: JSON.stringify({
+              action: 'UPDATE_POST_PRIORITY',
+              post: {
+                id: postId,
+                priority: 5,
+              },
+            }),
+          },
+          {
+            text: '先記著再說哈哈',
+            payload: JSON.stringify({
+              action: 'UPDATE_POST_PRIORITY',
+              post: {
+                id: postId,
+                priority: 3,
+              },
+            }),
+          },
+        ]))
         .then(() => bot.sendSenderAction(recipient, 'typing_off'))
         .catch((err) => {
           bot.sendMessage(recipient, { text: err.message });
@@ -131,5 +124,46 @@ bot.on('message', (res) => {
     }
   }
 });
+
+bot.on('postback', (res) => {
+  const payload = JSON.parse(res.postback.payload);
+  const recipient = res.sender.id;
+
+  switch (payload.action) {
+    case 'HELP': {
+      break;
+    }
+    case 'LIST_POSTS': {
+      db.posts('priority', 5)
+        .then(posts => bot.sendPostCards(recipient, posts))
+        .catch(err => Promise.reject(err));
+      break;
+    }
+    case 'LIST_NEARBY_POSTS': {
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+});
+
+bot.setPersistentMenu([
+  {
+    type: 'postback',
+    title: 'list',
+    payload: JSON.stringify({ action: 'LIST_POSTS' }),
+  },
+  {
+    type: 'postback',
+    title: 'nearby',
+    payload: JSON.stringify({ action: 'LIST_NEARBY_POSTS' }),
+  },
+  {
+    type: 'postback',
+    title: 'help',
+    payload: JSON.stringify({ action: 'HELP' }),
+  },
+]);
 
 app.listen(port);
