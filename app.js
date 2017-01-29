@@ -39,17 +39,53 @@ bot.on('message', (res) => {
     switch (payload.action) {
       case 'UPDATE_POST_PRIORITY': {
         bot.sendSenderAction(recipient, 'mark_seen')
-        .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-        .then(() => db.updatePost(payload.post.id, {
-          priority: payload.post.priority,
-        }))
-        .then(() => bot.sendMessage(recipient, {
-          text: '祈禱 Harry 會盡快帶你去吧可科',
-        }))
-        .then(() => bot.sendSenderAction(recipient, 'typing_off'))
-        .catch((err) => {
-          bot.sendMessage(recipient, { text: err.message });
-        });
+          .then(() => bot.sendSenderAction(recipient, 'typing_on'))
+          .then(() => db.updatePost(payload.post.id, '', {
+            priority: payload.post.priority,
+          }))
+          .then(() => bot.sendMessage(recipient, {
+            text: '祈禱 Harry 會盡快帶你去吧哈哈',
+          }))
+          .then(() => bot.sendSenderAction(recipient, 'typing_off'))
+          .catch((err) => {
+            bot.sendMessage(recipient, { text: err.message });
+          });
+
+        break;
+      }
+      case 'SET_POST_PLACE_TYPE': {
+        bot.sendSenderAction(recipient, 'mark_seen')
+          .then(() => bot.sendSenderAction(recipient, 'typing_on'))
+          .then(() => db.updatePost(payload.post.id, 'place', {
+            type: payload.post.place.type,
+          }))
+          .then(() => bot.sendSenderAction(recipient, 'typing_on'))
+          .then(() => bot.sendQuestion(recipient, '想去？', [
+            {
+              text: '超想去！',
+              payload: JSON.stringify({
+                action: 'UPDATE_POST_PRIORITY',
+                post: {
+                  id: payload.post.id,
+                  priority: 5,
+                },
+              }),
+            },
+            {
+              text: '先記著再說哈哈',
+              payload: JSON.stringify({
+                action: 'UPDATE_POST_PRIORITY',
+                post: {
+                  id: payload.post.id,
+                  priority: 3,
+                },
+              }),
+            },
+          ]))
+          .then(() => bot.sendSenderAction(recipient, 'typing_off'))
+          .catch((err) => {
+            bot.sendMessage(recipient, { text: err.message });
+          });
 
         break;
       }
@@ -66,7 +102,7 @@ bot.on('message', (res) => {
       const url = text;
 
       let post = { from: url };
-      let place = {};
+      let place = { type: 'eat' };
       bot.sendSenderAction(recipient, 'mark_seen')
         .then(() => bot.sendSenderAction(recipient, 'typing_on'))
         .then(() => bot.getProfile(recipient))
@@ -93,26 +129,47 @@ bot.on('message', (res) => {
 
           return bot.sendPostCard(recipient, post);
         })
-        .then(() => bot.sendSenderAction(recipient, 'typing_on'))
         .then(() => db.addPost(post))
-        .then(postId => bot.sendQuestion(recipient, '想去？', [
+        .then((postId) => {
+          post = Object.assign({}, post, { id: postId });
+
+          return post;
+        })
+        .then(() => bot.sendSenderAction(recipient, 'typing_on'))
+        .then(() => bot.sendQuestion(recipient, '種類？', [
           {
-            text: '超想去！',
+            text: '吃',
             payload: JSON.stringify({
-              action: 'UPDATE_POST_PRIORITY',
+              action: 'SET_POST_PLACE_TYPE',
               post: {
-                id: postId,
-                priority: 5,
+                id: post.id,
+                place: {
+                  type: 'eat',
+                },
               },
             }),
           },
           {
-            text: '先記著再說哈哈',
+            text: '喝',
             payload: JSON.stringify({
-              action: 'UPDATE_POST_PRIORITY',
+              action: 'SET_POST_PLACE_TYPE',
               post: {
-                id: postId,
-                priority: 3,
+                id: post.id,
+                place: {
+                  type: 'drink',
+                },
+              },
+            }),
+          },
+          {
+            text: '玩',
+            payload: JSON.stringify({
+              action: 'SET_POST_PLACE_TYPE',
+              post: {
+                id: post.id,
+                place: {
+                  type: 'play',
+                },
               },
             }),
           },
@@ -135,7 +192,13 @@ bot.on('postback', (res) => {
     }
     case 'LIST_POSTS': {
       db.posts('priority', 5)
-        .then(posts => bot.sendPostCards(recipient, posts))
+        .then((posts) => {
+          if (posts.length === 0) {
+            return bot.sendMessage(recipient, { text: 'Nothing to show TT' });
+          }
+
+          return bot.sendPostCards(recipient, posts);
+        })
         .catch(err => Promise.reject(err));
       break;
     }

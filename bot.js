@@ -22,13 +22,17 @@ class Bot extends MessengerBot {
   }
 
   sendPostCards(recipient, posts) {
+    if (posts.length === 0) {
+      return Promise.reject(new Error('No post can be sent!'));
+    }
+
     const elements = posts.map(({ from, imageUrl, place }) => ({
       image_url: imageUrl,
       title: place.name,
       subtitle: place.address,
       default_action: {
-        url: from,
         type: 'web_url',
+        url: from,
       },
       buttons: [
         {
@@ -48,7 +52,7 @@ class Bot extends MessengerBot {
         },
       },
     })
-    .catch(err => Promise.reject(err));
+      .catch(err => Promise.reject(err));
   }
 
   sendPostCard(recipient, post) {
@@ -65,7 +69,7 @@ class Bot extends MessengerBot {
         title: text,
       })),
     })
-    .catch(err => Promise.reject(err));
+      .catch(err => Promise.reject(err));
   }
 }
 

@@ -90,10 +90,9 @@ class Db {
       .catch(err => Promise.reject(err));
   }
 
-  updatePost(id, data) {
-    const postRef = this.db.ref('posts').child(id);
-
-    return postRef.update(data)
+  updatePost(id, ref, data) {
+    return this.db.ref(`posts/${id}/${ref}`)
+      .update(data)
       .catch(err => Promise.reject(err));
   }
 
