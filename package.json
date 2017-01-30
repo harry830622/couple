@@ -4,7 +4,7 @@
   "description": "Make my girl happy :smile:",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
@@ -19,6 +19,7 @@
   "dependencies": {
     "@google-cloud/storage": "^0.6.1",
     "body-parser": "^1.16.0",
+    "co": "^4.6.0",
     "express": "^4.14.0",
     "firebase": "^3.6.7",
     "messenger-bot": "github:remixz/messenger-bot",

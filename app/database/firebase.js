@@ -3,9 +3,9 @@ const path = require('path');
 const firebase = require('firebase');
 const gs = require('@google-cloud/storage');
 
-const util = require('./util.js');
+const util = require.main.require('./app/utilities');
 
-class Db {
+class Database {
   constructor(projectId, keyFile, apiKey, authDomain, databaseURL, storageBucket) {
     firebase.initializeApp({
       apiKey,
@@ -68,7 +68,7 @@ class Db {
     const postRef = this.db.ref('posts').push();
     const id = postRef.key;
 
-    return util.downloadImage(imageUrl, id, '.tmp/images/')
+    return util.network.downloadImage(imageUrl, id, '.tmp/images/')
       .then((localImagePath) => {
         const ext = path.parse(localImagePath).ext;
         const contentType = (ext === 'png') ? 'image/png' : 'image/jpeg';
@@ -98,4 +98,4 @@ class Db {
 
 }
 
-module.exports = Db;
+module.exports = Database;

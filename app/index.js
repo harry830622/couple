@@ -1,28 +1,28 @@
+const co = require('co');
 const express = require('express');
 
-const ig = require('./ig.js');
-const Map = require('./map.js');
-const Db = require('./db.js');
-const Bot = require('./bot.js');
+const { keys } = require.main.require('./config');
+const { ig } = require.main.require('./app/crawler');
+const { Map } = require.main.require('./app/utilities');
+const { Bot } = require.main.require('./app/bot');
+const { Database } = require.main.require('./app/database');
 
-const port = process.argv[2];
+const server = express();
 
-const app = express();
+const map = new Map(keys.google.apiKey);
 
-const map = new Map(process.env.google_api_key);
+const db = new Database(
+  keys.google.gcloud.projectId,
+  keys.google.gcloud.keyFile,
+  keys.google.firebase.apiKey,
+  keys.google.firebase.authDomain,
+  keys.google.firebase.databaseUrl,
+  keys.google.firebase.storageBucket);
 
-const db = new Db(
-  process.env.gcloud_project_id,
-  process.env.gcloud_key_file,
-  process.env.firebase_api_key,
-  process.env.firebase_auth_domain,
-  process.env.firebase_database_url,
-  process.env.firebase_storage_bucket);
-
-const bot = new Bot(app, {
-  appSecret: process.env.app_secret,
-  pageAccessToken: process.env.page_access_token,
-  verifyToken: process.env.verify_token,
+const bot = new Bot(server, {
+  appSecret: keys.facebook.appSecret,
+  pageAccessToken: keys.facebook.pageAccessToken,
+  verifyToken: keys.facebook.verifyToken,
 }, '/bot');
 
 bot.on('error', (err) => {
@@ -101,48 +101,45 @@ bot.on('message', (res) => {
     if (text.includes('instagram.com/p/')) {
       const url = text;
 
-      let post = { from: url };
-      let place = { type: 'eat' };
-      bot.sendSenderAction(recipient, 'mark_seen')
-        .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-        .then(() => bot.getProfile(recipient))
-        .then((profile) => {
-          const by = profile.gender === 'male' ? 'Harry' : 'Wendy';
+      co(function* () {
+        let post = { from: url };
+        let place = { type: 'eat' };
 
-          post = Object.assign({}, post, { by });
+        yield bot.sendSenderAction(recipient, 'mark_seen');
+        yield bot.sendSenderAction(recipient, 'typing_on');
 
-          return ig.loadPlaceName(post.from);
-        })
-        .then((placeName) => {
-          place = Object.assign({}, place, { name: placeName });
+        const profile = yield bot.getProfile(recipient);
+        const by = profile.gender === 'male' ? 'Harry' : 'Wendy';
 
-          return map.loadPlace(place.name);
-        })
-        .then((result) => {
-          place = Object.assign({}, place, {
-            address: result.formatted_address,
-            location: {
-              latitude: result.geometry.location.lat,
-              longitude: result.geometry.location.lng,
-            },
-          });
-          post = Object.assign({}, post, { place });
+        post = Object.assign({}, post, { by });
 
-          return ig.loadImageUrl(post.from);
-        })
-        .then((imageUrl) => {
-          post = Object.assign({}, post, { imageUrl });
+        const placeName = yield ig.loadPlaceName(post.from);
 
-          return bot.sendPostCard(recipient, post);
-        })
-        .then(() => db.addPost(post))
-        .then((postId) => {
-          post = Object.assign({}, post, { id: postId });
+        place = Object.assign({}, place, { name: placeName });
 
-          return post;
-        })
-        .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-        .then(() => bot.sendQuestion(recipient, '種類？', [
+        const mapResult = yield map.loadPlace(place.name);
+
+        place = Object.assign({}, place, {
+          address: mapResult.formatted_address,
+          location: {
+            latitude: mapResult.geometry.location.lat,
+            longitude: mapResult.geometry.location.lng,
+          },
+        });
+
+        const imageUrl = yield ig.loadImageUrl(post.from);
+
+        post = Object.assign({}, post, { imageUrl, place });
+
+        yield bot.sendPostCard(recipient, post);
+
+        const postId = yield db.addPost(post);
+
+        post = Object.assign({}, post, { id: postId });
+
+        // yield bot.sendSenderAction(recipient, 'typing_on');
+
+        yield bot.sendQuestion(recipient, '種類？', [
           {
             text: '吃',
             payload: JSON.stringify({
@@ -179,11 +176,11 @@ bot.on('message', (res) => {
               },
             }),
           },
-        ]))
-        .then(() => bot.sendSenderAction(recipient, 'typing_off'))
-        .catch((err) => {
-          bot.sendMessage(recipient, { text: err.message });
-        });
+        ]);
+
+        yield bot.sendSenderAction(recipient, 'typing_off');
+      })
+        .catch(err => Promise.reject(err));
     }
   }
 });
@@ -235,4 +232,6 @@ bot.setPersistentMenu([
   },
 ]);
 
-app.listen(port);
+module.exports = {
+  server,
+};
