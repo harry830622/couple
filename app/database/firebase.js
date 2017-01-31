@@ -20,10 +20,35 @@ class Firebase {
       .catch(err => Promise.reject(err));
   }
 
+  post(id) {
+    const postRef = this.db.ref('posts').child(id);
+
+    return postRef.once('value')
+      .then(snapshot => snapshot.val())
+      .catch(err => Promise.reject(err));
+  }
+
+  placesBetween(orderBy, start, end) {
+    const placesRef = this.db.ref('places');
+
+    return placesRef.orderByChild(orderBy).startAt(start).endAt(end)
+      .once('value')
+      .then((snapshot) => {
+        let places = [];
+        snapshot.forEach((childSnapshot) => {
+          places = places.concat([childSnapshot.val()]);
+        });
+
+        return places;
+      })
+      .catch(err => Promise.reject(err));
+  }
+
   places(numPlaces, orderBy = 'name') {
     const placesRef = this.db.ref('places');
 
-    return placesRef.orderByChild(orderBy).limitToLast(numPlaces).once('value')
+    return placesRef.orderByChild(orderBy).limitToLast(numPlaces)
+      .once('value')
       .then((snapshot) => {
         let places = [];
         snapshot.forEach((childSnapshot) => {

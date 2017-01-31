@@ -71,6 +71,15 @@ class Bot extends MessengerBot {
     })
       .catch(err => Promise.reject(err));
   }
+
+  askLocation(recipient, question = '你在哪呢？') {
+    return this.sendMessage(recipient, {
+      text: question,
+      quick_replies: [{ content_type: 'location' }],
+    })
+      .catch(err => Promise.reject(err));
+  }
+
 }
 
 module.exports = Bot;

@@ -39,12 +39,12 @@ bot.on('message', (res) => {
   const { message } = res;
   const recipient = res.sender.id;
 
-  if (message.quick_reply) {
-    const payload = JSON.parse(message.quick_reply.payload);
+  co(function* flow() {
+    yield bot.sendSenderAction(recipient, 'mark_seen');
+    yield bot.sendSenderAction(recipient, 'typing_on');
 
-    co(function* flow() {
-      yield bot.sendSenderAction(recipient, 'mark_seen');
-      yield bot.sendSenderAction(recipient, 'typing_on');
+    if (message.quick_reply) {
+      const payload = JSON.parse(message.quick_reply.payload);
 
       switch (payload.action) {
         case 'UPDATE_POST_PRIORITY': {
@@ -88,21 +88,14 @@ bot.on('message', (res) => {
           break;
         }
       }
+    }
 
-      yield bot.sendSenderAction(recipient, 'typing_off');
-    })
-      .catch((err) => {
-        bot.sendMessage(recipient, { text: err.message });
-      });
-  }
+    if (message.text) {
+      const { text } = message;
 
-  if (message.text) {
-    const { text } = message;
+      if (text.includes('instagram.com/p/')) {
+        const url = text;
 
-    if (text.includes('instagram.com/p/')) {
-      const url = text;
-
-      co(function* flow() {
         yield bot.sendSenderAction(recipient, 'mark_seen');
         yield bot.sendSenderAction(recipient, 'typing_on');
 
@@ -192,14 +185,57 @@ bot.on('message', (res) => {
             }),
           },
         ]);
-
-        yield bot.sendSenderAction(recipient, 'typing_off');
-      })
-        .catch((err) => {
-          bot.sendMessage(recipient, { text: err.message });
-        });
+      }
     }
-  }
+
+    if (message.attachments) {
+      const { attachments } = message;
+
+      if (attachments[0].type === 'location') {
+        const { lat, long } = attachments[0].payload.coordinates;
+        const km = 3;
+        const range = 0.01 * km;
+
+        const placesSortedByLat = yield db.placesBetween('location/latitude',
+          lat - range, lat + range);
+        const placesSortedByLng = yield db.placesBetween('location/longitude',
+          long - range, long + range);
+
+        const placesNearby = placesSortedByLat
+          .filter(placeLat => placesSortedByLng.map(placeLng => placeLng.name)
+            .includes(placeLat.name));
+
+        let postCards = [];
+        for (let i = 0; i < placesNearby.length; i += 1) {
+          if (i === 10) {
+            break;
+          }
+
+          const { name, address, postId } = placesNearby[i];
+
+          const post = yield db.post(postId);
+
+          postCards = postCards.concat([{
+            from: post.from,
+            imageUrl: post.imageUrl,
+            placeName: name,
+            placeAddress: address,
+            priority: post.priority,
+          }]);
+        }
+
+        // TODO: Stable sort is better.
+        postCards.sort((a, b) => b.priority - a.priority);
+
+        yield bot.sendPostCards(recipient, postCards);
+      }
+    }
+
+    yield bot.sendSenderAction(recipient, 'typing_off');
+  })
+    .catch((err) => {
+      bot.sendMessage(recipient, { text: err.message });
+    });
 });
 
 bot.on('postback', (res) => {
@@ -239,6 +275,8 @@ bot.on('postback', (res) => {
         break;
       }
       case 'LIST_NEARBY_POSTS': {
+        yield bot.askLocation(recipient);
+
         break;
       }
       default: {
