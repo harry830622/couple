@@ -26,10 +26,10 @@ class Bot extends MessengerBot {
       return Promise.reject(new Error('No post can be sent!'));
     }
 
-    const elements = posts.map(({ from, imageUrl, place }) => ({
+    const elements = posts.map(({ from, imageUrl, placeName, placeAddress }) => ({
       image_url: imageUrl,
-      title: place.name,
-      subtitle: place.address,
+      title: placeName,
+      subtitle: placeAddress,
       default_action: {
         type: 'web_url',
         url: from,
@@ -37,7 +37,7 @@ class Bot extends MessengerBot {
       buttons: [
         {
           type: 'web_url',
-          url: `https://www.google.com/maps/?q=${place.name}`,
+          url: `https://www.google.com/maps/?q=${placeName}`,
           title: 'Go!',
         },
       ],

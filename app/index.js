@@ -1,28 +1,34 @@
+const config = require.main.require('./config');
+const Bot = require.main.require('./app/bot');
+const { Firebase } = require.main.require('./app/database');
+const { GCloud } = require.main.require('./app/storage');
+const { ig } = require.main.require('./app/crawler');
+const { GoogleMap, network } = require.main.require('./app/utilities');
+
 const co = require('co');
 const express = require('express');
-
-const { keys } = require.main.require('./config');
-const { ig } = require.main.require('./app/crawler');
-const { Map } = require.main.require('./app/utilities');
-const { Bot } = require.main.require('./app/bot');
-const { Database } = require.main.require('./app/database');
+const path = require('path');
 
 const server = express();
 
-const map = new Map(keys.google.apiKey);
+const map = new GoogleMap(config.google.apiKey);
 
-const db = new Database(
-  keys.google.gcloud.projectId,
-  keys.google.gcloud.keyFile,
-  keys.google.firebase.apiKey,
-  keys.google.firebase.authDomain,
-  keys.google.firebase.databaseUrl,
-  keys.google.firebase.storageBucket);
+const db = new Firebase({
+  apiKey: config.google.firebase.apiKey,
+  authDomain: config.google.firebase.authDomain,
+  databaseURL: config.google.firebase.databaseUrl,
+  storageBucket: config.google.firebase.storageBucket,
+});
+
+const storage = new GCloud({
+  projectId: config.google.gcloud.projectId,
+  keyFile: config.google.gcloud.keyFile,
+});
 
 const bot = new Bot(server, {
-  appSecret: keys.facebook.appSecret,
-  pageAccessToken: keys.facebook.pageAccessToken,
-  verifyToken: keys.facebook.verifyToken,
+  appSecret: config.facebook.appSecret,
+  pageAccessToken: config.facebook.pageAccessToken,
+  verifyToken: config.facebook.verifyToken,
 }, '/bot');
 
 bot.on('error', (err) => {
@@ -36,31 +42,24 @@ bot.on('message', (res) => {
   if (message.quick_reply) {
     const payload = JSON.parse(message.quick_reply.payload);
 
-    switch (payload.action) {
-      case 'UPDATE_POST_PRIORITY': {
-        bot.sendSenderAction(recipient, 'mark_seen')
-          .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-          .then(() => db.updatePost(payload.post.id, '', {
-            priority: payload.post.priority,
-          }))
-          .then(() => bot.sendMessage(recipient, {
+    co(function* flow() {
+      yield bot.sendSenderAction(recipient, 'mark_seen');
+      yield bot.sendSenderAction(recipient, 'typing_on');
+
+      switch (payload.action) {
+        case 'UPDATE_POST_PRIORITY': {
+          yield db.setPost(payload.post.id, 'priority', payload.post.priority);
+
+          yield bot.sendMessage(recipient, {
             text: '祈禱 Harry 會盡快帶你去吧哈哈',
-          }))
-          .then(() => bot.sendSenderAction(recipient, 'typing_off'))
-          .catch((err) => {
-            bot.sendMessage(recipient, { text: err.message });
           });
 
-        break;
-      }
-      case 'SET_POST_PLACE_TYPE': {
-        bot.sendSenderAction(recipient, 'mark_seen')
-          .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-          .then(() => db.updatePost(payload.post.id, 'place', {
-            type: payload.post.place.type,
-          }))
-          .then(() => bot.sendSenderAction(recipient, 'typing_on'))
-          .then(() => bot.sendQuestion(recipient, '想去？', [
+          break;
+        }
+        case 'SET_POST_PLACE_TYPE': {
+          yield db.setPlace(payload.place.id, 'type', payload.place.type);
+
+          yield bot.sendQuestion(recipient, '想去？', [
             {
               text: '超想去！',
               payload: JSON.stringify({
@@ -81,18 +80,20 @@ bot.on('message', (res) => {
                 },
               }),
             },
-          ]))
-          .then(() => bot.sendSenderAction(recipient, 'typing_off'))
-          .catch((err) => {
-            bot.sendMessage(recipient, { text: err.message });
-          });
+          ]);
 
-        break;
+          break;
+        }
+        default: {
+          break;
+        }
       }
-      default: {
-        break;
-      }
-    }
+
+      yield bot.sendSenderAction(recipient, 'typing_off');
+    })
+      .catch((err) => {
+        bot.sendMessage(recipient, { text: err.message });
+      });
   }
 
   if (message.text) {
@@ -101,43 +102,54 @@ bot.on('message', (res) => {
     if (text.includes('instagram.com/p/')) {
       const url = text;
 
-      co(function* () {
-        let post = { from: url };
-        let place = { type: 'eat' };
-
+      co(function* flow() {
         yield bot.sendSenderAction(recipient, 'mark_seen');
         yield bot.sendSenderAction(recipient, 'typing_on');
 
-        const profile = yield bot.getProfile(recipient);
-        const by = profile.gender === 'male' ? 'Harry' : 'Wendy';
+        const placeName = yield ig.loadPlaceName(url);
+        const mapResult = yield map.loadPlace(placeName);
+        const placeAddress = mapResult.formatted_address;
 
-        post = Object.assign({}, post, { by });
-
-        const placeName = yield ig.loadPlaceName(post.from);
-
-        place = Object.assign({}, place, { name: placeName });
-
-        const mapResult = yield map.loadPlace(place.name);
-
-        place = Object.assign({}, place, {
-          address: mapResult.formatted_address,
+        const placeId = yield db.addPlace({
+          name: placeName,
+          address: placeAddress,
           location: {
             latitude: mapResult.geometry.location.lat,
             longitude: mapResult.geometry.location.lng,
           },
         });
 
-        const imageUrl = yield ig.loadImageUrl(post.from);
+        const profile = yield bot.getProfile(recipient);
+        const by = profile.gender === 'male' ? 'Harry' : 'Wendy';
 
-        post = Object.assign({}, post, { imageUrl, place });
+        const postId = yield db.addPost({
+          by,
+          placeId,
+          imageUrl: '',
+          from: url,
+        });
 
-        yield bot.sendPostCard(recipient, post);
+        yield db.setPlace(placeId, 'postId', postId);
 
-        const postId = yield db.addPost(post);
+        const imageUrl = yield ig.loadImageUrl(url);
+        const localImagePath = yield network
+          .downloadImage(imageUrl, postId, '.tmp/images/');
+        const ext = path.parse(localImagePath).ext;
+        const contentType = (ext === 'png') ? 'image/png' : 'image/jpeg';
 
-        post = Object.assign({}, post, { id: postId });
+        const newImageUrl = yield storage.uploadImage(localImagePath, {
+          contentType,
+          metadata: { place: placeName },
+        }, config.google.gcloud.storage.bucketName);
 
-        // yield bot.sendSenderAction(recipient, 'typing_on');
+        yield db.setPost(postId, 'imageUrl', newImageUrl);
+
+        yield bot.sendPostCard(recipient, {
+          placeName,
+          placeAddress,
+          from: url,
+          imageUrl: newImageUrl,
+        });
 
         yield bot.sendQuestion(recipient, '種類？', [
           {
@@ -145,10 +157,11 @@ bot.on('message', (res) => {
             payload: JSON.stringify({
               action: 'SET_POST_PLACE_TYPE',
               post: {
-                id: post.id,
-                place: {
-                  type: 'eat',
-                },
+                id: postId,
+              },
+              place: {
+                id: placeId,
+                type: 'eat',
               },
             }),
           },
@@ -157,10 +170,11 @@ bot.on('message', (res) => {
             payload: JSON.stringify({
               action: 'SET_POST_PLACE_TYPE',
               post: {
-                id: post.id,
-                place: {
-                  type: 'drink',
-                },
+                id: postId,
+              },
+              place: {
+                id: placeId,
+                type: 'drink',
               },
             }),
           },
@@ -169,10 +183,11 @@ bot.on('message', (res) => {
             payload: JSON.stringify({
               action: 'SET_POST_PLACE_TYPE',
               post: {
-                id: post.id,
-                place: {
-                  type: 'play',
-                },
+                id: postId,
+              },
+              place: {
+                id: placeId,
+                type: 'play',
               },
             }),
           },
@@ -180,7 +195,9 @@ bot.on('message', (res) => {
 
         yield bot.sendSenderAction(recipient, 'typing_off');
       })
-        .catch(err => Promise.reject(err));
+        .catch((err) => {
+          bot.sendMessage(recipient, { text: err.message });
+        });
     }
   }
 });
@@ -189,29 +206,49 @@ bot.on('postback', (res) => {
   const payload = JSON.parse(res.postback.payload);
   const recipient = res.sender.id;
 
-  switch (payload.action) {
-    case 'HELP': {
-      break;
-    }
-    case 'LIST_POSTS': {
-      db.posts('priority', 5)
-        .then((posts) => {
-          if (posts.length === 0) {
-            return bot.sendMessage(recipient, { text: 'Nothing to show TT' });
-          }
+  co(function* flow() {
+    switch (payload.action) {
+      case 'HELP': {
+        break;
+      }
+      case 'LIST_POSTS': {
+        const posts = yield db.posts(10, 'priority');
 
-          return bot.sendPostCards(recipient, posts);
-        })
-        .catch(err => Promise.reject(err));
-      break;
+        if (posts.length === 0) {
+          yield bot.sendMessage(recipient, { text: 'Nothing to show TT' });
+          break;
+        }
+
+        posts.reverse();
+        let postCards = [];
+        for (let i = 0; i < posts.length; i += 1) {
+          const { from, imageUrl, placeId } = posts[i];
+
+          const place = yield db.place(placeId);
+
+          postCards = postCards.concat([{
+            from,
+            imageUrl,
+            placeName: place.name,
+            placeAddress: place.address,
+          }]);
+        }
+
+        yield bot.sendPostCards(recipient, postCards);
+
+        break;
+      }
+      case 'LIST_NEARBY_POSTS': {
+        break;
+      }
+      default: {
+        break;
+      }
     }
-    case 'LIST_NEARBY_POSTS': {
-      break;
-    }
-    default: {
-      break;
-    }
-  }
+  })
+    .catch((err) => {
+      bot.sendMessage(recipient, { text: err.message });
+    });
 });
 
 bot.setPersistentMenu([

@@ -1,12 +1,7 @@
-const fs = require('fs');
-const path = require('path');
 const firebase = require('firebase');
-const gs = require('@google-cloud/storage');
 
-const util = require.main.require('./app/utilities');
-
-class Database {
-  constructor(projectId, keyFile, apiKey, authDomain, databaseURL, storageBucket) {
+class Firebase {
+  constructor({ apiKey, authDomain, databaseURL, storageBucket }) {
     firebase.initializeApp({
       apiKey,
       authDomain,
@@ -15,40 +10,32 @@ class Database {
     });
 
     this.db = firebase.database();
-    this.bucket = gs({
-      projectId,
-      keyFilename: keyFile,
-    }).bucket('couple-156506.appspot.com');
   }
 
-  uploadImage(localImagePath, metadata) {
-    const localImageBase = path.parse(localImagePath).base;
-    const remoteImage = this.bucket.file(`images/${localImageBase}`);
+  place(id) {
+    const placeRef = this.db.ref('places').child(id);
 
-    return new Promise((resolve, reject) => {
-      fs.createReadStream(localImagePath)
-        .pipe(remoteImage.createWriteStream({ metadata }))
-        .on('error', (err) => {
-          reject(
-            new Error(`Fail to upload ${localImagePath}: ${err.message}`));
-        })
-        .on('finish', () => {
-          remoteImage.getSignedUrl({
-            action: 'read',
-            expires: '01-01-2500',
-          }, (err, url) => {
-            if (err) {
-              reject(err);
-            }
-
-            resolve(url);
-          });
-        });
-    })
+    return placeRef.once('value')
+      .then(snapshot => snapshot.val())
       .catch(err => Promise.reject(err));
   }
 
-  posts(orderBy, numPosts) {
+  places(numPlaces, orderBy = 'name') {
+    const placesRef = this.db.ref('places');
+
+    return placesRef.orderByChild(orderBy).limitToLast(numPlaces).once('value')
+      .then((snapshot) => {
+        let places = [];
+        snapshot.forEach((childSnapshot) => {
+          places = places.concat([childSnapshot.val()]);
+        });
+
+        return places;
+      })
+      .catch(err => Promise.reject(err));
+  }
+
+  posts(numPosts, orderBy = 'timestamp') {
     const postsRef = this.db.ref('posts');
 
     return postsRef.orderByChild(orderBy).limitToLast(numPosts).once('value')
@@ -57,45 +44,75 @@ class Database {
         snapshot.forEach((childSnapshot) => {
           posts = posts.concat([childSnapshot.val()]);
         });
-        posts = posts.reverse();
 
         return posts;
       })
       .catch(err => Promise.reject(err));
   }
 
-  addPost({ by, from, imageUrl, place }) {
-    const postRef = this.db.ref('posts').push();
-    const id = postRef.key;
+  addPlace({ name, address, location }) {
+    const placeRef = this.db.ref('places').push();
+    const id = placeRef.key;
 
-    return util.network.downloadImage(imageUrl, id, '.tmp/images/')
-      .then((localImagePath) => {
-        const ext = path.parse(localImagePath).ext;
-        const contentType = (ext === 'png') ? 'image/png' : 'image/jpeg';
-
-        return this.uploadImage(localImagePath, {
-          contentType,
-          metadata: { place: place.name },
-        });
-      })
-      .then(newImageUrl => postRef.set({
-        by,
-        from,
-        place,
-        imageUrl: newImageUrl,
-        priority: 3,
-        timestamp: Date.now(),
-      }))
+    return placeRef.set({
+      name,
+      address,
+      location,
+      type: 'eat',
+      postId: '',
+    })
       .then(() => id)
       .catch(err => Promise.reject(err));
   }
 
-  updatePost(id, ref, data) {
-    return this.db.ref(`posts/${id}/${ref}`)
+  addPost({ by, from, imageUrl, placeId }) {
+    const postRef = this.db.ref('posts').push();
+    const id = postRef.key;
+
+    return postRef.set({
+      by,
+      from,
+      placeId,
+      imageUrl,
+      priority: 3,
+      timestamp: Date.now(),
+    })
+      .then(() => id)
+      .catch(err => Promise.reject(err));
+  }
+
+  set(ref, data) {
+    return this.db.ref(ref)
+      .set(data)
+      .catch(err => Promise.reject(err));
+  }
+
+  setPlace(id, child, data) {
+    return this.set(`places/${id}/${child}`, data)
+      .catch(err => Promise.reject(err));
+  }
+
+  setPost(id, child, data) {
+    return this.set(`posts/${id}/${child}`, data)
+      .catch(err => Promise.reject(err));
+  }
+
+  update(ref, data) {
+    return this.db.ref(ref)
       .update(data)
+      .catch(err => Promise.reject(err));
+  }
+
+  updatePlace(id, child, data) {
+    return this.update(`places/${id}/${child}`, data)
+      .catch(err => Promise.reject(err));
+  }
+
+  updatePost(id, child, data) {
+    return this.update(`posts/${id}/${child}`, data)
       .catch(err => Promise.reject(err));
   }
 
 }
 
-module.exports = Database;
+module.exports = Firebase;

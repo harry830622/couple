@@ -1,6 +1,6 @@
 const rp = require('request-promise-native');
 
-class Map {
+class GoogleMap {
   constructor(key) {
     this.key = key;
   }
@@ -40,4 +40,4 @@ class Map {
 
 }
 
-module.exports = Map;
+module.exports = GoogleMap;

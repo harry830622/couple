@@ -1,7 +1,7 @@
-const Map = require('./map.js');
+const GoogleMap = require('./google_map.js');
 const network = require('./network.js');
 
 module.exports = {
-  Map,
+  GoogleMap,
   network,
 };

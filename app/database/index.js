@@ -1,5 +1,5 @@
-const Database = require('./firebase.js');
+const Firebase = require('./firebase.js');
 
 module.exports = {
-  Database,
+  Firebase,
 };
