@@ -193,7 +193,7 @@ bot.on('message', (res) => {
 
       if (attachments[0].type === 'location') {
         const { lat, long } = attachments[0].payload.coordinates;
-        const km = 3;
+        const km = 0;
         const range = 0.01 * km;
 
         const placesSortedByLat = yield db.placesBetween('location/latitude',
@@ -205,29 +205,33 @@ bot.on('message', (res) => {
           .filter(placeLat => placesSortedByLng.map(placeLng => placeLng.name)
             .includes(placeLat.name));
 
-        let postCards = [];
-        for (let i = 0; i < placesNearby.length; i += 1) {
-          if (i === 10) {
-            break;
+        if (placesNearby.length === 0) {
+          yield bot.sendMessage(recipient, { text: '附近沒東西QQ' });
+        } else {
+          let postCards = [];
+          for (let i = 0; i < placesNearby.length; i += 1) {
+            if (i === 10) {
+              break;
+            }
+
+            const { name, address, postId } = placesNearby[i];
+
+            const post = yield db.post(postId);
+
+            postCards = postCards.concat([{
+              from: post.from,
+              imageUrl: post.imageUrl,
+              placeName: name,
+              placeAddress: address,
+              priority: post.priority,
+            }]);
           }
 
-          const { name, address, postId } = placesNearby[i];
+          // TODO: Stable sort is better.
+          postCards.sort((a, b) => b.priority - a.priority);
 
-          const post = yield db.post(postId);
-
-          postCards = postCards.concat([{
-            from: post.from,
-            imageUrl: post.imageUrl,
-            placeName: name,
-            placeAddress: address,
-            priority: post.priority,
-          }]);
+          yield bot.sendPostCards(recipient, postCards);
         }
-
-        // TODO: Stable sort is better.
-        postCards.sort((a, b) => b.priority - a.priority);
-
-        yield bot.sendPostCards(recipient, postCards);
       }
     }
 
