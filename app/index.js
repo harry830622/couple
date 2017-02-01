@@ -193,7 +193,7 @@ bot.on('message', (res) => {
 
       if (attachments[0].type === 'location') {
         const { lat, long } = attachments[0].payload.coordinates;
-        const km = 0;
+        const km = 2;
         const range = 0.01 * km;
 
         const placesSortedByLat = yield db.placesBetween('location/latitude',
