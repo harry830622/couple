@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Couple</title>
+    <script src="https://www.gstatic.com/firebasejs/4.2.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/4.2.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/4.2.0/firebase-database.js"></script>
+    <script>
+      const config = {
+        apiKey: 'AIzaSyCpWOP4j_Rl50bOXPfTjK-tl-EqaV4kNzo',
+        authDomain: 'couple-156506.firebaseapp.com',
+        databaseURL: 'https://couple-156506.firebaseio.com',
+      };
+      firebase.initializeApp(config);
+    </script>
+    <script src="https://cdn.firebase.com/libs/firebaseui/2.3.0/firebaseui.js"></script>
+    <script>
+      const uiConfig = {
+        signInSuccessUrl: '/',
+        signInOptions: [
+          firebase.auth.FacebookAuthProvider.PROVIDER_ID,
+        ],
+        tosUrl: '/'
+      };
+      const ui = new firebaseui.auth.AuthUI(firebase.auth());
+      ui.start('#firebaseui-auth-container', uiConfig);
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/normalize/7.0.0/normalize.css">
+    <link rel="stylesheet" href="https://cdn.firebase.com/libs/firebaseui/2.3.0/firebaseui.css" />
+    <link href="https://fonts.googleapis.com/css?family=Just+Another+Hand" rel="stylesheet">
+  </head>
+  <body style="position:absolute; top:0; bottom: 0; left: 0; right: 0; background-color: #EBCC47;">
+    <main>
+      <div style="margin-top: 200px; font-family: 'Just Another Hand'; font-size: 20rem; text-align: center; color: #FFFFFF;">COUPLE</div>
+      <div id="firebaseui-auth-container"></div>
+    </main>
+
+    <script>
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+        } else {
+        }
+      });
+    </script>
+  </body>
+</html>

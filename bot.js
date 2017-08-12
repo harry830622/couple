@@ -1,6 +1,7 @@
 const Koa = require('koa');
 const route = require('koa-route');
 const bodyParser = require('koa-bodyparser');
+const send = require('koa-send');
 
 const { MessengerClient } = require('messaging-api-messenger');
 
@@ -13,7 +14,7 @@ const server = new Koa();
 server.use(bodyParser());
 
 server.use(
-  route.get('/bot', (ctx) => {
+  route.get('/bot', async (ctx) => {
     if (
       ctx.query['hub.mode'] === 'subscribe' &&
       ctx.query['hub.verify_token'] === 'ilovewendy'
@@ -27,7 +28,7 @@ server.use(
 );
 
 server.use(
-  route.post('/bot', (ctx) => {
+  route.post('/bot', async (ctx) => {
     const { body } = ctx.request;
     const { object, entry: entries } = body;
 
@@ -40,7 +41,6 @@ server.use(
             const { text } = message;
 
             if (text) {
-              bot.sendText(sender.id, text);
             }
           }
         });
@@ -48,6 +48,12 @@ server.use(
     }
 
     ctx.status = 200;
+  }),
+);
+
+server.use(
+  route.get('/', async (ctx) => {
+    await send(ctx, '/index.html');
   }),
 );
 

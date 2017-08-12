@@ -20,6 +20,7 @@
     "koa": "^2.3.0",
     "koa-bodyparser": "^4.2.0",
     "koa-route": "^3.2.0",
+    "koa-send": "^4.1.0",
     "messaging-api-messenger": "^0.2.5"
   }
 }
