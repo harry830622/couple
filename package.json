@@ -1,10 +1,10 @@
 {
   "name": "couple",
-  "version": "0.0.1",
-  "description": "Make my girl happy :smile:",
-  "main": "index.js",
+  "version": "1.0.0",
+  "description": "Make my girl happy",
+  "main": "",
   "scripts": {
-    "start": "node server.js"
+    "start": ""
   },
   "repository": {
     "type": "git",
@@ -17,14 +17,9 @@
   },
   "homepage": "https://github.com/harry830622/couple#readme",
   "dependencies": {
-    "@google-cloud/storage": "^0.6.1",
-    "body-parser": "^1.16.0",
-    "co": "^4.6.0",
-    "express": "^4.14.0",
-    "firebase": "^3.6.7",
-    "messenger-bot": "github:remixz/messenger-bot",
-    "nightmare": "^2.9.1",
-    "request": "^2.79.0",
-    "request-promise-native": "^1.0.3"
+    "koa": "^2.3.0",
+    "koa-bodyparser": "^4.2.0",
+    "koa-route": "^3.2.0",
+    "messaging-api-messenger": "^0.2.5"
   }
 }
