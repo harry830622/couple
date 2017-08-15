@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/harry830622/couple#readme",
   "dependencies": {
+    "chromeless": "^1.2.0",
     "koa": "^2.3.0",
     "koa-bodyparser": "^4.2.0",
     "koa-route": "^3.2.0",

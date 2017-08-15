@@ -1,60 +1,57 @@
-const Koa = require('koa');
-const route = require('koa-route');
-const bodyParser = require('koa-bodyparser');
-const send = require('koa-send');
-
 const { MessengerClient } = require('messaging-api-messenger');
 
+const { Chromeless } = require('chromeless');
+
+const { URL } = require('url');
+
 const bot = MessengerClient.connect(
-  'EAAY4pXkMBQgBAKVWUbX9efHxHjKLFDRy5jAXhpju0g6eNbNbh9YQH5Xj3A9NSi1dryC4Uo5kkBonGRd4XpYPvrwnEEWgu1Rce3OmZBtgqiijveLhtclWVG1UmbnaREpvdz14zlCBZAEMwzwia0gzEEQyjFSUKasTfLKmKRJrXTNCZA0qL2E',
+  'EAAY4pXkMBQgBAMsxsm6Gm5TagRETcu55Wa9R89bbh2cCfSNbifFOiyZBYVt0ndgTy5RdiryyZB3ODtZBUlsrBklc1tHSm1snS2ZBawMHtGObZCVFqv2ZB3DsIVt2md0Oc7txmarve04ohtZAilq9MDXO7IvFZC9vh8xMbelRaElndjE73u99rWTw',
 );
 
-const server = new Koa();
+async function flow(event) {
+  const { sender, message } = event;
 
-server.use(bodyParser());
+  const browser = new Chromeless();
 
-server.use(
-  route.get('/bot', async (ctx) => {
-    if (
-      ctx.query['hub.mode'] === 'subscribe' &&
-      ctx.query['hub.verify_token'] === 'ilovewendy'
-    ) {
-      ctx.status = 200;
-      ctx.body = ctx.query['hub.challenge'];
-    } else {
-      ctx.status = 403;
+  if (message) {
+    const { text } = message;
+
+    if (text) {
+      let isTextUrl = true;
+      try {
+        const _ = new URL(text);
+      } catch (error) {
+        isTextUrl = false;
+      }
+
+      if (isTextUrl) {
+        const url = new URL(text);
+
+        if (url.hostname === 'www.instagram.com') {
+          const placeName = await browser
+            .goto(url.toString())
+            .wait('main article')
+            .evaluate(() => {
+              const a = document.querySelector(
+                'main article > header a[href*="locations"]',
+              );
+
+              if (a === null) {
+                return '未知';
+              }
+
+              return a.innerHTML;
+            });
+
+          await bot.sendText(sender.id, placeName);
+        }
+      } else {
+        await bot.sendText(sender.id, text);
+      }
     }
-  }),
-);
+  }
 
-server.use(
-  route.post('/bot', async (ctx) => {
-    const { body } = ctx.request;
-    const { object, entry: entries } = body;
+  await browser.end();
+}
 
-    if (object === 'page') {
-      entries.forEach((entry) => {
-        entry.messaging.forEach((e) => {
-          const { sender, message } = e;
-
-          if (message) {
-            const { text } = message;
-
-            if (text) {
-            }
-          }
-        });
-      });
-    }
-
-    ctx.status = 200;
-  }),
-);
-
-server.use(
-  route.get('/', async (ctx) => {
-    await send(ctx, '/index.html');
-  }),
-);
-
-server.listen(3000);
+module.exports = { flow };
